@@ -55,18 +55,16 @@ def main(args):
         checkpoint_utils.verify_checkpoint_directory(args.save_dir)
 
     # Print args
-    #logger.info(args)
+    logger.info(args)
 
     # Setup task, e.g., translation, language modeling, etc.
     task = tasks.setup_task(args)
-    #print (task)
     # Load valid dataset (we load training data below, based on the latest checkpoint)
     for valid_sub_split in args.valid_subset.split(","):
         task.load_dataset(valid_sub_split, beam = args.beam_size, combine=False, epoch=1)
 
     # Build model and criterion
     model = task.build_model(args)
-    #print (model)
     criterion = task.build_criterion(args)
     #logger.info(model)
     '''
@@ -120,28 +118,6 @@ def main(args):
     train_meter = meters.StopwatchMeter()
     train_meter.start()
     
-    
-    '''
-    generate translation
-
-    logger.info('loading model(s) from {}'.format(args.model_path))
-    models, _model_args = checkpoint_utils.load_model_ensemble(
-        utils.split_paths(args.model_path),
-        task=task,
-        suffix=getattr(args, "checkpoint_suffix", ""),
-    )
-    # Initialize generator
-    #gen_timer = StopwatchMeter()
-    #generator = task.build_generator(models, args)
-
-    def generate_translation (generator, models, sample):
-
-        if args.prefix_size > 0:
-            prefix_tokens = sample['target'][:, :args.prefix_size]
-        hypos = task.inference_step(generator, models, sample, prefix_tokens)
-    '''
-
-    #print (epoch_itr, max_epoch)
     while lr > args.min_lr and epoch_itr.next_epoch_idx <= max_epoch:
         # train for one epoch
         valid_losses, should_stop = train(args, trainer, task, epoch_itr)
@@ -231,7 +207,6 @@ def cal_bleu (samples, task, args):
 
     assert len(batch_bleu) == len(target_tensor)
 
-    #utils.strip_pad(samples['target'],)
     return samples
     
 
@@ -263,7 +238,7 @@ def train(args, trainer, task, epoch_itr):
         ),
         default_log_format=("tqdm" if not args.no_progress_bar else "simple"),
     )
-    #print (list(enumerate(progress))[2])
+
 
     trainer.begin_epoch(epoch_itr.epoch)
 
@@ -294,7 +269,6 @@ def train(args, trainer, task, epoch_itr):
             args, trainer, task, epoch_itr, valid_subsets, end_of_epoch
         )
         
-        #sys.exit()
 
         if should_stop:
             break
@@ -310,7 +284,6 @@ def train(args, trainer, task, epoch_itr):
 
 
 def validate_and_save(args, trainer, task, epoch_itr, valid_subsets, end_of_epoch):
-    #print ("in fairseq_cli/train.py",task)
     num_updates = trainer.get_num_updates()
     do_save = (
         args.save_interval_updates > 0
