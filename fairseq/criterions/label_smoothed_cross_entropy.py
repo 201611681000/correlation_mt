@@ -20,17 +20,9 @@ def label_smoothed_nll_loss(samples, sent_len, lprobs, cand_probs, target, cand,
     if cand.dim() == cand_probs.dim() - 1:
         cand = cand.unsqueeze(-1)
 
-    print ("target",target[:26])
-    print ("prob",lprobs.size())
-    print ("prob",len(lprobs[0]))
-    print ("tgt prob",lprobs[7][target[7]])
-
     nll_loss = -lprobs.gather(dim=-1, index=target)
     cand_loss = -cand_probs.gather(dim=-1, index=cand)
     smooth_loss = -lprobs.sum(dim=-1, keepdim=True)
-    print ("nll_loss", nll_loss[7])
-    print ("smooth_loss",smooth_loss)
-    print (smooth_loss.size())
 
     if ignore_index is not None:
         pad_mask = target.eq(ignore_index)
@@ -43,9 +35,6 @@ def label_smoothed_nll_loss(samples, sent_len, lprobs, cand_probs, target, cand,
         nll_loss = nll_loss.squeeze(-1)
         smooth_loss = smooth_loss.squeeze(-1)
 
-    print (smooth_loss.size())
-    print (nll_loss.size())
-
     def cal_pearson(x, y):
         vx = x - torch.mean(x)
         vy = y - torch.mean(y)
@@ -56,33 +45,16 @@ def label_smoothed_nll_loss(samples, sent_len, lprobs, cand_probs, target, cand,
         return r
 
     cand_loss_trans = cand_loss.view(-1,sent_len)
-    #cand_len = torch.Tensor([(len(torch.nonzero(cand_loss_trans[i], as_tuple=False))) for i in range (len(cand_loss_trans))]).cuda() 
     cand_loss = cand_loss_trans.sum(axis=1)
-    
-    #loss_avg = torch.div(cand_loss, cand_len)
     
     torch_bleu = torch.tensor(samples['bleu']).cuda()
 
     pearson = cal_pearson(torch_bleu,cand_loss)
-    #pearson = cal_pearson(torch_bleu,loss_avg)
     
     if len(cand_loss) > 200:
-        #print ("sentence_loss {}".format(i) for i in cand_loss_trans[1])
         print ("probs:{}\tbleu:{}".format(cand_loss, torch_bleu))
         print (pearson)
-
-    #if pearson < -0.2:
-    #    print ("bleu:{}  prob:{}".format(np.round(np_bleu, 3), np.round(np_prob, 4)))
-    
-    #if loss_avg[1] > 1 or loss_avg[1] < 0.3:
         
-    #if cand_loss[1] > 100 or cand_loss[1] < 1:
-    #    print ("cand_total_loss", cand_loss[1])
-    #    print ("sentence_loss {}".format(i) for i in cand_loss_trans[1])
-    #    print ("probs:{}\tbleu:{}".format(cand_loss, torch_bleu))
-    #    print (pearson)
-    
-
     if reduce:
         nll_loss = nll_loss.sum()
         smooth_loss = smooth_loss.sum()
@@ -128,8 +100,6 @@ class LabelSmoothedCrossEntropyCriterion(FairseqCriterion):
 
         total_loss, loss, nll_loss, pearson = self.compute_loss(model, net_output_tgt, net_output_cand, sample, reduce=reduce)
         sample_size = sample['target'].size(0) if self.sentence_avg else sample['ntokens']
-        print ("sample size", sample_size)
-        sys.exit()
         logging_output = {
             'total_loss':total_loss.data,
             'loss': loss.data,
@@ -144,8 +114,6 @@ class LabelSmoothedCrossEntropyCriterion(FairseqCriterion):
     def compute_loss(self, model, tgt_output, cand_output, sample, reduce=True):
         lprobs = model.get_normalized_probs(tgt_output, log_probs=True)
         cand_lprobs = model.get_normalized_probs(cand_output, log_probs=True)
-        print ("before view", lprobs.size())
-        print ("before view", lprobs[0])
         sent_len = len(cand_lprobs[0])
 
         lprobs = lprobs.view(-1, lprobs.size(-1))
